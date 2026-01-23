@@ -1,0 +1,15 @@
+
+{
+  "name": "demo-app",
+  "version": "1.0.0",
+  "description": "Minimal Node.js app for Azure App Service (no containers)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "echo \"(add tests)\" && exit 0"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
