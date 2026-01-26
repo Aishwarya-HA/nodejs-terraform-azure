@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: nodejs-app-aishwarya   # <-- exact name in Azure
+  AZURE_WEBAPP_NAME: nodejs-app-aishwarya     # <-- must match your App Service name
   NODE_VERSION: "20.x"
 
 jobs:
@@ -22,12 +22,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: npm
+          cache-dependency-path: ./src/package-lock.json   # << key fix
 
-      # Install & (optionally) build INSIDE src/ where your package.json sits
       - name: Install dependencies
         working-directory: ./src
-        run: npm ci
+        run: npm ci   # uses the lock file for reproducible installs
 
       - name: Run tests (optional)
         working-directory: ./src
@@ -37,10 +37,9 @@ jobs:
         working-directory: ./src
         run: npm run build --if-present
 
-      # Deploy the app folder (src) to App Service
       - name: Deploy to Azure Web App (Publish Profile)
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: "./src"
+          package: ./src
