@@ -1,5 +1,5 @@
 
-variable "location"          { default = "west europe" }
-variable "resource_group"    { default = "rg-nodejs-demo" }
-variable "app_service_plan"  { default = "asp-nodejs-demo" }
-variable "webapp_name"       { default = "nodejs-webapp-demo-001" }
+variable "location"         { type = string  default = "Central India" }
+variable "resource_group"   { type = string  default = "rg-nodejs-app" }
+variable "app_service_plan" { type = string  default = "appnodejslinux" }
+variable "webapp_name"      { type = string  default = "nodejs-app-aishwarya" }
