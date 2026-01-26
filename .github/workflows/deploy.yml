@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: nodejs-app-aishwarya     # <-- must match your App Service name
+  AZURE_WEBAPP_NAME: nodejs-app-aishwarya     # <-- your exact App Service name
   NODE_VERSION: "20.x"
 
 jobs:
@@ -23,11 +23,11 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: ./src/package-lock.json   # << key fix
+          cache-dependency-path: ./src/package-lock.json   # << must exist in repo
 
       - name: Install dependencies
         working-directory: ./src
-        run: npm ci   # uses the lock file for reproducible installs
+        run: npm ci   # strictly uses package-lock.json
 
       - name: Run tests (optional)
         working-directory: ./src
