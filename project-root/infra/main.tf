@@ -1,4 +1,3 @@
-
 terraform {
   required_version = ">= 1.5.0"
   required_providers {
@@ -40,11 +39,34 @@ resource "azurerm_linux_web_app" "app" {
     application_stack {
       node_version = "20-lts"
     }
+    always_on = true # keeps app warm on non-Free plans
   }
 
   app_settings = {
+    # REQUIRED so your Node server binds to expected port
+    WEBSITES_PORT = "8080"
+
     # Build with Oryx during Zip Deploy
-    "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
-    "WEBSITE_RUN_FROM_PACKAGE"       = "1"
+    SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
+
+    # Run From Package (zip)
+    WEBSITE_RUN_FROM_PACKAGE = "1"
+
+    # Optional environment context
+    NODE_ENV = "production"
+    APP_ENV  = "production"
+  }
+
+  # Basic filesystem logs so Log Stream works
+  logs {
+    http_logs {
+      file_system {
+        retention_in_days = 7
+        retention_in_mb   = 100
+      }
+    }
+    application_logs {
+      file_system_level = "Information"
+    }
   }
 }
