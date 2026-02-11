@@ -1,45 +1,90 @@
-
-name: Deploy Node.js App to Azure App Service (Publish Profile)
+name: Terraform Infra + Deploy Node.js App
 
 on:
   push:
     branches: ["main"]
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
-  AZURE_WEBAPP_NAME: nodejs-app-aishwarya     # <-- your exact App Service name
-  NODE_VERSION: "20.x"
+  TF_WORK_DIR: project-root/infra
+  NODE_SRC_DIR: src
+  NODE_VERSION: "20"
+  AZURE_WEBAPP_NAME: nodejs-app-aishwarya-dev   # must match dev.tfvars webapp_name
 
 jobs:
-  build_and_deploy:
+
+  # ---------------------------
+  # 1) TERRAFORM INFRASTRUCTURE
+  # ---------------------------
+  terraform:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORK_DIR }}
+        run: terraform init
+
+      - name: Terraform Apply (using dev.tfvars)
+        working-directory: ${{ env.TF_WORK_DIR }}
+        run: terraform apply -auto-approve -var-file=dev.tfvars
+
+
+  # ---------------------------
+  # 2) DEPLOY NODE.JS APP
+  # ---------------------------
+  deploy:
+    needs: terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: ./src/package-lock.json   # << must exist in repo
 
       - name: Install dependencies
-        working-directory: ./src
-        run: npm ci   # strictly uses package-lock.json
-
-      - name: Run tests (optional)
-        working-directory: ./src
-        run: npm test --if-present
+        working-directory: ${{ env.NODE_SRC_DIR }}
+        run: npm ci
 
       - name: Build (optional)
-        working-directory: ./src
+        working-directory: ${{ env.NODE_SRC_DIR }}
         run: npm run build --if-present
 
-      - name: Deploy to Azure Web App (Publish Profile)
-        uses: azure/webapps-deploy@v2
+      - name: Zip Artifact
+        run: |
+          cd ${{ env.NODE_SRC_DIR }}
+          zip -r ../app.zip . -x "node_modules/*"
+          cd ..
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./src
+          package: app.zip
