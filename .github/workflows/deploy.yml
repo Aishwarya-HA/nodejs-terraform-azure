@@ -13,18 +13,20 @@ env:
   TF_WORK_DIR: project-root/infra
   NODE_SRC_DIR: src
   NODE_VERSION: "20"
-  AZURE_WEBAPP_NAME: nodejs-app-aishwarya-dev   # must match dev.tfvars webapp_name
+  AZURE_WEBAPP_NAME: nodejs-app-aishwarya-dev   # must equal webapp_name in dev.tfvars
 
 jobs:
-
-  # ---------------------------
-  # 1) TERRAFORM INFRASTRUCTURE
-  # ---------------------------
   terraform:
     runs-on: ubuntu-latest
+    env:
+      # <-- Tell the AzureRM provider how to auth & WHICH subscription to use
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Azure Login (OIDC)
@@ -34,6 +36,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Show Azure context (sanity)
+        run: az account show -o table
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -41,28 +46,26 @@ jobs:
         working-directory: ${{ env.TF_WORK_DIR }}
         run: terraform init
 
-      - name: Terraform Apply (using dev.tfvars)
+      - name: Terraform Plan (dev)
+        working-directory: ${{ env.TF_WORK_DIR }}
+        run: terraform plan -var-file=dev.tfvars
+
+      - name: Terraform Apply (dev)
         working-directory: ${{ env.TF_WORK_DIR }}
         run: terraform apply -auto-approve -var-file=dev.tfvars
 
-
-  # ---------------------------
-  # 2) DEPLOY NODE.JS APP
-  # ---------------------------
   deploy:
     needs: terraform
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install dependencies
+      - name: Install deps
         working-directory: ${{ env.NODE_SRC_DIR }}
         run: npm ci
 
@@ -83,7 +86,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy to Azure Web App
+      - name: Deploy to Azure Web App (ZipDeploy)
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
