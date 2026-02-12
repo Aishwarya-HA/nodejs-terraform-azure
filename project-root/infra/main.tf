@@ -16,15 +16,16 @@ provider "azurerm" {
 # ───────────────────────────────────────────────────────────────
 # Use an EXISTING Resource Group (no creation, no import needed)
 # ───────────────────────────────────────────────────────────────
-data "azurerm_resource_group" "rg" {
-  name = var.resource_group  # e.g., "rg-nodejs-app-dev"
+resource "azurerm_resource_group" "rg" {
+  name     = var.resource_group
+  location = var.location
 }
 
 # App Service Plan (Linux)
 resource "azurerm_service_plan" "plan" {
   name                = var.app_service_plan
-  location            = data.azurerm_resource_group.rg.location
-  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
   os_type             = "Linux"
   sku_name            = "B1" # Use S1/P1v3 for production
 }
@@ -32,8 +33,8 @@ resource "azurerm_service_plan" "plan" {
 # Linux Web App (Node 20 LTS)
 resource "azurerm_linux_web_app" "app" {
   name                = var.webapp_name
-  location            = data.azurerm_resource_group.rg.location
-  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
   service_plan_id     = azurerm_service_plan.plan.id
   https_only          = true
 
