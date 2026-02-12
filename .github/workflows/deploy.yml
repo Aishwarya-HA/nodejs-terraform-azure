@@ -2,7 +2,7 @@ name: Terraform + Build & Deploy Node.js (single job)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -63,21 +63,22 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # Quick sanity: ensure src/package.json exists (fail fast if layout is wrong)
+      # Ensure src/package.json exists (fail fast if layout is wrong)
       - name: Sanity check: src layout
         shell: bash
         run: |
-          test -f "${{ env.NODE_SRC_DIR }}/package.json" || {
+          set -e
+          if [ ! -f "${{ env.NODE_SRC_DIR }}/package.json" ]; then
             echo "ERROR: '${{ env.NODE_SRC_DIR }}/package.json' not found. Ensure your app lives in '${{ env.NODE_SRC_DIR }}'." >&2
             exit 1
-          }
+          fi
           echo "Found ${{ env.NODE_SRC_DIR }}/package.json"
 
       - name: Install deps
         working-directory: ${{ env.NODE_SRC_DIR }}
         run: npm ci
 
-      # If you have any build step (React/TS, etc.). Safe to leave.
+      # Optional build step (safe to keep)
       - name: Build (optional)
         working-directory: ${{ env.NODE_SRC_DIR }}
         run: npm run build --if-present
@@ -86,8 +87,9 @@ jobs:
       - name: Create deployment artifact (zip)
         shell: bash
         run: |
-          cd "${{ env.NODE_SRC_DIR }}"     # cd src
-          zip -r ../app.zip .              # zip the CONTENTS of src ('.' is the key)
+          set -e
+          cd "${{ env.NODE_SRC_DIR }}"    # cd src
+          zip -r ../app.zip .             # zip the CONTENTS of src ('.' is important)
           cd ..
 
       # ----- ZipDeploy to App Service -----
