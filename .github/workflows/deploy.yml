@@ -72,26 +72,6 @@ jobs:
         working-directory: ${{ env.NODE_SRC_DIR }}
         run: npm run build --if-present
 
-      # ----- Enable Oryx build on Kudu so npm install runs server-side -----
-      - name: Enable build during deployment (Oryx)
-        shell: bash
-        run: |
-          set -e
-          APP_NAME="${{ env.AZURE_WEBAPP_NAME }}"
-
-          # Get resource group without knowing it beforehand
-          RG=$(az resource show \
-                --resource-type Microsoft.Web/sites \
-                -n "$APP_NAME" \
-                --query resourceGroup -o tsv)
-
-          echo "Resolved resource group: $RG"
-
-          # Enable Oryx build so Azure runs 'npm install' and prepares startup
-          az webapp config appsettings set \
-            -g "$RG" -n "$APP_NAME" \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true
-
       # ----- Deploy src contents directly (no zip/artifact) -----
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
