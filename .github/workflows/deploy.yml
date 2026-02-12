@@ -63,6 +63,16 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      # Quick sanity: ensure src/package.json exists (fail fast if layout is wrong)
+      - name: Sanity check: src layout
+        shell: bash
+        run: |
+          test -f "${{ env.NODE_SRC_DIR }}/package.json" || {
+            echo "ERROR: '${{ env.NODE_SRC_DIR }}/package.json' not found. Ensure your app lives in '${{ env.NODE_SRC_DIR }}'." >&2
+            exit 1
+          }
+          echo "Found ${{ env.NODE_SRC_DIR }}/package.json"
+
       - name: Install deps
         working-directory: ${{ env.NODE_SRC_DIR }}
         run: npm ci
@@ -72,9 +82,17 @@ jobs:
         working-directory: ${{ env.NODE_SRC_DIR }}
         run: npm run build --if-present
 
-      # ----- Deploy src contents directly (no zip/artifact) -----
-      - name: Deploy to Azure Web App
+      # ----- Package the CONTENTS of src into a zip (so package.json is at zip root) -----
+      - name: Create deployment artifact (zip)
+        shell: bash
+        run: |
+          cd "${{ env.NODE_SRC_DIR }}"     # cd src
+          zip -r ../app.zip .              # zip the CONTENTS of src ('.' is the key)
+          cd ..
+
+      # ----- ZipDeploy to App Service -----
+      - name: Deploy to Azure Web App (ZipDeploy)
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: ${{ env.NODE_SRC_DIR }}
+          package: app.zip
