@@ -1,23 +1,19 @@
-variable "location" {
-  description = "Azure region for all resources"
+variable "resource_group" {
   type        = string
-  default     = "Central India"
+  description = "Existing Azure Resource Group name (must already exist)"
 }
 
-variable "resource_group" {
-  description = "Resource group name"
+variable "location" {
   type        = string
-  default     = "rg-nodejs-app"
+  description = "Azure location (kept for compatibility if you reference it elsewhere)"
 }
 
 variable "app_service_plan" {
-  description = "Linux App Service Plan name"
   type        = string
-  default     = "asp-nodejs-linux"
+  description = "App Service Plan name"
 }
 
 variable "webapp_name" {
-  description = "Linux Web App name (must be globally unique)"
   type        = string
-  default     = "nodejs-app-aishwarya-tf"  
+  description = "Linux Web App name"
 }
