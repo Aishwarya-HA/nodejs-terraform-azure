@@ -1,4 +1,4 @@
-name: Terraform + Build & Deploy Node.js (single job)
+name: "Terraform + Build & Deploy Node.js (single job)"
 
 on:
   push:
@@ -39,6 +39,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Show Azure context (sanity)
+        shell: bash
         run: az account show -o table
 
       # ----- Terraform -----
@@ -69,7 +70,7 @@ jobs:
         run: |
           set -e
           if [ ! -f "${{ env.NODE_SRC_DIR }}/package.json" ]; then
-            echo "ERROR: '${{ env.NODE_SRC_DIR }}/package.json' not found. Ensure your app lives in '${{ env.NODE_SRC_DIR }}'." >&2
+            echo "ERROR: '${{ env.NODE_SRC_DIR }}/package.json' not found. Ensure your app lives in '${{ env.NODE_SRC_DIR }}'."
             exit 1
           fi
           echo "Found ${{ env.NODE_SRC_DIR }}/package.json"
@@ -88,8 +89,8 @@ jobs:
         shell: bash
         run: |
           set -e
-          cd "${{ env.NODE_SRC_DIR }}"    # cd src
-          zip -r ../app.zip .             # zip the CONTENTS of src ('.' is important)
+          cd "${{ env.NODE_SRC_DIR }}"     # cd src
+          zip -r ../app.zip .              # zip the CONTENTS of src ('.' is important)
           cd ..
 
       # ----- ZipDeploy to App Service -----
@@ -98,3 +99,10 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: app.zip
+
+      # (Optional) Restart the app so the new package mounts immediately
+      - name: Restart Web App
+        shell: bash
+        run: |
+          RG=$(az resource show --resource-type Microsoft.Web/sites -n "${{ env.AZURE_WEBAPP_NAME }}" --query resourceGroup -o tsv)
+          az webapp restart -g "$RG" -n "${{ env.AZURE_WEBAPP_NAME }}"
