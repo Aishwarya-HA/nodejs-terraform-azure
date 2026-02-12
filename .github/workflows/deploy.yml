@@ -1,8 +1,8 @@
-name: Terraform Infra + Deploy Node.js App
+name: Terraform + Build & Deploy Node.js (single job)
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
@@ -13,22 +13,24 @@ env:
   TF_WORK_DIR: project-root/infra
   NODE_SRC_DIR: src
   NODE_VERSION: "20"
-  AZURE_WEBAPP_NAME: nodejs-app-aishwarya-dev   # must equal webapp_name in dev.tfvars
+  AZURE_WEBAPP_NAME: nodejs-app-aishwarya-dev
 
 jobs:
-  terraform:
+  infra_build_deploy:
     runs-on: ubuntu-latest
+
     env:
-      # <-- Tell the AzureRM provider how to auth & WHICH subscription to use
       ARM_USE_OIDC: "true"
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     steps:
+      # ----- Checkout -----
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ----- Azure Login (for Terraform + WebApp) -----
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
@@ -39,6 +41,7 @@ jobs:
       - name: Show Azure context (sanity)
         run: az account show -o table
 
+      # ----- Terraform -----
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -54,12 +57,7 @@ jobs:
         working-directory: ${{ env.TF_WORK_DIR }}
         run: terraform apply -auto-approve -var-file=dev.tfvars
 
-  deploy:
-    needs: terraform
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
+      # ----- Node build (in ./src) -----
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -69,25 +67,23 @@ jobs:
         working-directory: ${{ env.NODE_SRC_DIR }}
         run: npm ci
 
+      # If you have any build step (React/TS, etc.). Safe to leave.
       - name: Build (optional)
         working-directory: ${{ env.NODE_SRC_DIR }}
         run: npm run build --if-present
 
-      - name: Zip Artifact
+      # ----- Enable Oryx build on Kudu so npm install runs server-side -----
+      - name: Enable build during deployment (Oryx)
+        id: set-oryx
+        shell: bash
         run: |
-          cd ${{ env.NODE_SRC_DIR }}
-          zip -r ../app.zip . -x "node_modules/*"
-          cd ..
+          RG=$(az webapp show -n "${{ env.AZURE_WEBAPP_NAME }}" --query resourceGroup -o tsv)
+          az webapp config appsettings set -g "$RG" -n "${{ env.AZURE_WEBAPP_NAME }}" \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true
 
-      - name: Azure Login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy to Azure Web App (ZipDeploy)
+      # ----- Deploy src contents directly (no zip/artifact) -----
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: app.zip
+          package: ${{ env.NODE_SRC_DIR }}
