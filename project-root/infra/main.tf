@@ -13,17 +13,18 @@ provider "azurerm" {
   use_oidc = true
 }
 
-# Resource Group
-resource "azurerm_resource_group" "rg" {
-  name     = var.resource_group
-  location = var.location
+# ───────────────────────────────────────────────────────────────
+# Use an EXISTING Resource Group (no creation, no import needed)
+# ───────────────────────────────────────────────────────────────
+data "azurerm_resource_group" "rg" {
+  name = var.resource_group  # e.g., "rg-nodejs-app-dev"
 }
 
 # App Service Plan (Linux)
 resource "azurerm_service_plan" "plan" {
   name                = var.app_service_plan
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
   os_type             = "Linux"
   sku_name            = "B1" # Use S1/P1v3 for production
 }
@@ -31,8 +32,8 @@ resource "azurerm_service_plan" "plan" {
 # Linux Web App (Node 20 LTS)
 resource "azurerm_linux_web_app" "app" {
   name                = var.webapp_name
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
   service_plan_id     = azurerm_service_plan.plan.id
   https_only          = true
 
@@ -40,20 +41,21 @@ resource "azurerm_linux_web_app" "app" {
     application_stack {
       node_version = "20-lts"
     }
-    always_on = true # keeps app warm on non-Free plans
+    always_on = true
+    # If you want to set startup command at infra level (same as Portal's Startup Command):
+    app_command_line = "npm start"
   }
 
   app_settings = {
-    # REQUIRED so your Node server binds to expected port
-    WEBSITES_PORT = "8080"
-
-    # Build with Oryx during Zip Deploy
+    # Build with Oryx during deployment (so npm install runs on Kudu)
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
 
-    # Run From Package (zip)
+    # Optional: If you deploy a ZIP (Run From Package). Safe to keep; Kudu will handle.
     WEBSITE_RUN_FROM_PACKAGE = "1"
 
-    # Optional environment context
+    # Optional for Node/Express demos; Oryx/PORT usually suffice
+    WEBSITES_PORT = "8080"
+
     NODE_ENV = "production"
     APP_ENV  = "production"
   }
