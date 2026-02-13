@@ -1,11 +1,11 @@
 variable "resource_group" {
   type        = string
-  description = "Existing Azure Resource Group name (must already exist)"
+  description = "Azure Resource Group name"
 }
 
 variable "location" {
   type        = string
-  description = "Azure location (kept for compatibility if you reference it elsewhere)"
+  description = "Azure location"
 }
 
 variable "app_service_plan" {
